@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -18,6 +19,11 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'fredoka': ['Fredoka One', 'cursive'],
+				'righteous': ['Righteous', 'cursive'],
+				'poppins': ['Poppins', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -61,7 +67,11 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				'neon-pink': 'hsl(var(--neon-pink))',
+				'electric-blue': 'hsl(var(--electric-blue))',
+				'lime-green': 'hsl(var(--lime-green))',
+				'sunset-orange': 'hsl(var(--sunset-orange))',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
