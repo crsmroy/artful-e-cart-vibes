@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProductData {
   productName: string;
@@ -18,6 +19,7 @@ const Shipping = () => {
   
   const [productData, setProductData] = useState<ProductData | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Form fields
   const [customerName, setCustomerName] = useState("");
@@ -47,6 +49,45 @@ const Shipping = () => {
     return requiredFields.every(field => field.trim() !== "");
   };
 
+  const saveOrderToDatabase = async (paymentMethod: string, paymentStatus = "Pending", paymentId: string | null = null) => {
+    if (!productData) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .insert([
+          {
+            product_name: productData.productName,
+            quantity: productData.quantity,
+            price_per_item: productData.pricePerItem,
+            total_price: productData.totalPrice,
+            customer_name: customerName,
+            email: email,
+            phone: phone,
+            address: address,
+            city: city,
+            state: state,
+            zip_code: zipCode,
+            payment_method: paymentMethod,
+            payment_status: paymentStatus,
+            payment_id: paymentId,
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Failed to save order:', error);
+      throw error;
+    }
+  };
+
   const handleCOD = async () => {
     if (!validateForm()) {
       toast({
@@ -57,31 +98,35 @@ const Shipping = () => {
       return;
     }
 
-    // Since Supabase isn't connected yet, we'll simulate the save operation
-    console.log("Order data that would be saved to Supabase:", {
-      ...productData,
-      customerName,
-      email,
-      phone,
-      address,
-      city,
-      state,
-      zipCode,
-      paymentMethod: "COD",
-      paymentStatus: "Pending",
-      paymentId: null,
-    });
-
-    setShowConfirmation(true);
+    setIsLoading(true);
     
-    setTimeout(() => {
-      setShowConfirmation(false);
-      localStorage.removeItem('productData');
-      navigate('/');
-    }, 5000);
+    try {
+      await saveOrderToDatabase("COD", "Pending");
+      
+      setShowConfirmation(true);
+      
+      setTimeout(() => {
+        setShowConfirmation(false);
+        localStorage.removeItem('productData');
+        navigate('/');
+      }, 5000);
+      
+      toast({
+        title: "Order Placed Successfully! 🎉",
+        description: "Your Cash on Delivery order has been confirmed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Order Failed! ❌",
+        description: "Failed to save your order. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleOnlinePayment = () => {
+  const handleOnlinePayment = async () => {
     if (!validateForm()) {
       toast({
         title: "Missing Information! 📝",
@@ -91,23 +136,36 @@ const Shipping = () => {
       return;
     }
 
-    // Simulate payment gateway redirect
-    toast({
-      title: "Redirecting to Payment Gateway! 💳",
-      description: "This would redirect to a real payment processor.",
-    });
-    
-    // In a real app, this would redirect to Stripe, PayPal, etc.
-    console.log("Would redirect to payment gateway with order data:", {
-      ...productData,
-      customerName,
-      email,
-      phone,
-      address,
-      city,
-      state,
-      zipCode,
-    });
+    setIsLoading(true);
+
+    try {
+      // Save order with pending status first
+      const order = await saveOrderToDatabase("Online", "Pending", `PAY_${Date.now()}`);
+      
+      if (order) {
+        // Store order data and redirect to payment screenshot page
+        localStorage.setItem('orderData', JSON.stringify({
+          orderId: order.id,
+          totalAmount: productData?.totalPrice,
+          customerName: customerName,
+        }));
+        
+        toast({
+          title: "Redirecting to Payment! 💳",
+          description: "Please upload your payment screenshot.",
+        });
+        
+        navigate('/payment-upload');
+      }
+    } catch (error) {
+      toast({
+        title: "Payment Failed! ❌",
+        description: "Failed to process payment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!productData) {
@@ -271,16 +329,18 @@ const Shipping = () => {
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
                 <button
                   onClick={handleCOD}
-                  className="funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow"
+                  disabled={isLoading}
+                  className="funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow disabled:opacity-50"
                 >
-                  💵 Cash on Delivery
+                  {isLoading ? "Processing..." : "💵 Cash on Delivery"}
                 </button>
                 
                 <button
                   onClick={handleOnlinePayment}
-                  className="funky-button bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-xl glow"
+                  disabled={isLoading}
+                  className="funky-button bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-xl glow disabled:opacity-50"
                 >
-                  💳 Online Payment
+                  {isLoading ? "Processing..." : "💳 Online Payment"}
                 </button>
               </div>
               
