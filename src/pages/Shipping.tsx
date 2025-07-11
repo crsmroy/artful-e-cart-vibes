@@ -3,8 +3,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import MathCaptcha from "@/components/MathCaptcha";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { validateEmail, validateIndianPhoneNumber, validateIndianState, getValidationMessage } from "@/utils/validation";
 
 interface ProductData {
   productName: string;
@@ -20,6 +22,7 @@ const Shipping = () => {
   const [productData, setProductData] = useState<ProductData | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaymentCaptchaVerified, setIsPaymentCaptchaVerified] = useState(false);
   
   // Form fields
   const [customerName, setCustomerName] = useState("");
@@ -29,6 +32,11 @@ const Shipping = () => {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zipCode, setZipCode] = useState("");
+
+  // Validation states
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [stateError, setStateError] = useState<string | null>(null);
 
   useEffect(() => {
     const storedProductData = localStorage.getItem('productData');
@@ -46,7 +54,21 @@ const Shipping = () => {
 
   const validateForm = () => {
     const requiredFields = [customerName, email, phone, address, city, state, zipCode];
-    return requiredFields.every(field => field.trim() !== "");
+    const allFieldsFilled = requiredFields.every(field => field.trim() !== "");
+    
+    // Validate email
+    const emailValidation = getValidationMessage('email', email);
+    setEmailError(emailValidation);
+    
+    // Validate phone
+    const phoneValidation = getValidationMessage('phone', phone);
+    setPhoneError(phoneValidation);
+    
+    // Validate state
+    const stateValidation = getValidationMessage('state', state);
+    setStateError(stateValidation);
+    
+    return allFieldsFilled && !emailValidation && !phoneValidation && !stateValidation;
   };
 
   const saveOrderToDatabase = async (paymentMethod: string, paymentStatus = "Pending", paymentId: string | null = null) => {
@@ -92,7 +114,16 @@ const Shipping = () => {
     if (!validateForm()) {
       toast({
         title: "Missing Information! 📝",
-        description: "Please fill in all shipping details.",
+        description: "Please fill in all shipping details correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isPaymentCaptchaVerified) {
+      toast({
+        title: "Security Verification Required! 🔐",
+        description: "Please complete the math captcha to proceed with payment.",
         variant: "destructive",
       });
       return;
@@ -130,7 +161,16 @@ const Shipping = () => {
     if (!validateForm()) {
       toast({
         title: "Missing Information! 📝",
-        description: "Please fill in all shipping details.",
+        description: "Please fill in all shipping details correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isPaymentCaptchaVerified) {
+      toast({
+        title: "Security Verification Required! 🔐",
+        description: "Please complete the math captcha to proceed with payment.",
         variant: "destructive",
       });
       return;
@@ -250,23 +290,35 @@ const Shipping = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (e.target.value) {
+                      setEmailError(getValidationMessage('email', e.target.value));
+                    }
+                  }}
                   placeholder="your.email@example.com"
-                  className="funky-input w-full"
+                  className={`funky-input w-full ${emailError ? 'border-red-500' : ''}`}
                 />
+                {emailError && <p className="text-red-500 text-sm mt-1">{emailError}</p>}
               </div>
               
               <div>
                 <label className="block text-lg font-semibold text-purple-700 mb-2">
-                  📱 Phone
+                  📱 Phone (Indian Number)
                 </label>
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Your phone number"
-                  className="funky-input w-full"
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (e.target.value) {
+                      setPhoneError(getValidationMessage('phone', e.target.value));
+                    }
+                  }}
+                  placeholder="+91 9876543210 or 9876543210"
+                  className={`funky-input w-full ${phoneError ? 'border-red-500' : ''}`}
                 />
+                {phoneError && <p className="text-red-500 text-sm mt-1">{phoneError}</p>}
               </div>
               
               <div>
@@ -297,55 +349,73 @@ const Shipping = () => {
               
               <div>
                 <label className="block text-lg font-semibold text-purple-700 mb-2">
-                  🗺️ State
+                  🗺️ State (Indian State)
                 </label>
                 <input
                   type="text"
                   value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  placeholder="State/Province"
-                  className="funky-input w-full"
+                  onChange={(e) => {
+                    setState(e.target.value);
+                    if (e.target.value) {
+                      setStateError(getValidationMessage('state', e.target.value));
+                    }
+                  }}
+                  placeholder="e.g., Maharashtra, Delhi, Tamil Nadu"
+                  className={`funky-input w-full ${stateError ? 'border-red-500' : ''}`}
                 />
+                {stateError && <p className="text-red-500 text-sm mt-1">{stateError}</p>}
               </div>
               
               <div className="md:col-span-2">
                 <label className="block text-lg font-semibold text-purple-700 mb-2">
-                  📮 ZIP Code
+                  📮 PIN Code
                 </label>
                 <input
                   type="text"
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value)}
-                  placeholder="ZIP/Postal code"
+                  placeholder="6-digit PIN code"
                   className="funky-input w-full max-w-xs"
                 />
               </div>
             </div>
             
-            {/* Payment Options */}
+            {/* Payment Security Captcha */}
             <div className="mt-12 pt-8 border-t-4 border-purple-200">
+              <h3 className="section-title text-center mb-6">🔐 Payment Security Verification</h3>
+              <div className="max-w-md mx-auto mb-8">
+                <MathCaptcha 
+                  onVerify={setIsPaymentCaptchaVerified} 
+                  isVerified={isPaymentCaptchaVerified}
+                />
+              </div>
+              
               <h3 className="section-title text-center mb-8">💳 Choose Payment Method</h3>
               
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
                 <button
                   onClick={handleCOD}
-                  disabled={isLoading}
-                  className="funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow disabled:opacity-50"
+                  disabled={isLoading || !isPaymentCaptchaVerified}
+                  className={`funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow disabled:opacity-50 ${
+                    !isPaymentCaptchaVerified ? 'cursor-not-allowed' : ''
+                  }`}
                 >
                   {isLoading ? "Processing..." : "💵 Cash on Delivery"}
                 </button>
                 
                 <button
                   onClick={handleOnlinePayment}
-                  disabled={isLoading}
-                  className="funky-button bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-xl glow disabled:opacity-50"
+                  disabled={isLoading || !isPaymentCaptchaVerified}
+                  className={`funky-button bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-xl glow disabled:opacity-50 ${
+                    !isPaymentCaptchaVerified ? 'cursor-not-allowed' : ''
+                  }`}
                 >
                   {isLoading ? "Processing..." : "💳 Online Payment"}
                 </button>
               </div>
               
               <p className="text-center text-purple-600 mt-6 text-lg">
-                Choose your preferred payment method to complete your order! 🎉
+                Complete the security verification above to unlock payment options! 🎉
               </p>
             </div>
           </div>
