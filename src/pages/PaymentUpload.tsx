@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import PaymentQRCode from "@/components/PaymentQRCode";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -145,91 +146,106 @@ const PaymentUpload = () => {
       <Navigation />
       
       <div className="pt-32 pb-20 px-4">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <h1 className="page-title text-center mb-8 bounce-in text-shadow">
-            💳 Upload Payment Screenshot
+            💳 Complete Your Payment
           </h1>
           
-          {/* Order Info */}
-          <div className="funky-card mb-8">
-            <h2 className="section-title mb-4">📋 Order Details</h2>
-            <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl p-4 border-2 border-green-200">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold text-purple-700">Order ID:</span>
-                <span className="text-purple-800 font-mono text-sm">{orderData.orderId}</span>
-              </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-semibold text-purple-700">Customer:</span>
-                <span className="text-purple-800">{orderData.customerName}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-purple-700">Amount to Pay:</span>
-                <span className="text-purple-800 font-bold text-xl">${orderData.totalAmount.toFixed(2)}</span>
-              </div>
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Left Column - QR Code */}
+            <div className="funky-card">
+              <PaymentQRCode 
+                amount={orderData.totalAmount}
+                orderId={orderData.orderId}
+                merchantName="Funky Store"
+                merchantUPI="merchant@paytm"
+              />
             </div>
-          </div>
 
-          {/* Upload Section */}
-          <div className="funky-card">
-            <h2 className="section-title mb-6">📸 Upload Payment Proof</h2>
-            
+            {/* Right Column - Order Details & Upload */}
             <div className="space-y-6">
-              <div className="text-center">
-                <p className="text-lg text-purple-600 mb-4">
-                  Please upload a screenshot or photo of your payment confirmation
-                </p>
+              {/* Order Info */}
+              <div className="funky-card">
+                <h2 className="section-title mb-4">📋 Order Details</h2>
+                <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-2xl p-4 border-2 border-green-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold text-purple-700">Order ID:</span>
+                    <span className="text-purple-800 font-mono text-sm">{orderData.orderId}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold text-purple-700">Customer:</span>
+                    <span className="text-purple-800">{orderData.customerName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-purple-700">Amount to Pay:</span>
+                    <span className="text-purple-800 font-bold text-xl">₹{orderData.totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Section */}
+              <div className="funky-card">
+                <h2 className="section-title mb-6">📸 Upload Payment Proof</h2>
                 
-                <div className="border-4 border-dashed border-purple-300 rounded-2xl p-8 bg-purple-50/50">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    id="payment-screenshot"
-                  />
-                  <label
-                    htmlFor="payment-screenshot"
-                    className="cursor-pointer flex flex-col items-center space-y-4"
-                  >
-                    <div className="text-6xl">📷</div>
-                    <div className="text-lg font-semibold text-purple-700">
-                      Click to select payment screenshot
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <p className="text-lg text-purple-600 mb-4">
+                      After making payment, upload your screenshot here
+                    </p>
+                    
+                    <div className="border-4 border-dashed border-purple-300 rounded-2xl p-8 bg-purple-50/50">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="payment-screenshot"
+                      />
+                      <label
+                        htmlFor="payment-screenshot"
+                        className="cursor-pointer flex flex-col items-center space-y-4"
+                      >
+                        <div className="text-6xl">📷</div>
+                        <div className="text-lg font-semibold text-purple-700">
+                          Click to select payment screenshot
+                        </div>
+                        <div className="text-sm text-purple-500">
+                          Supported: JPG, PNG, GIF (Max 5MB)
+                        </div>
+                      </label>
                     </div>
-                    <div className="text-sm text-purple-500">
-                      Supported: JPG, PNG, GIF (Max 5MB)
+                  </div>
+
+                  {/* Preview */}
+                  {previewUrl && (
+                    <div className="text-center">
+                      <h3 className="text-xl font-semibold text-purple-700 mb-4">Preview:</h3>
+                      <img
+                        src={previewUrl}
+                        alt="Payment screenshot preview"
+                        className="max-w-full max-h-64 mx-auto rounded-2xl border-4 border-purple-200 shadow-lg"
+                      />
+                      <p className="text-purple-600 mt-4">File: {selectedFile?.name}</p>
                     </div>
-                  </label>
+                  )}
+
+                  {/* Upload Button */}
+                  <div className="text-center pt-6">
+                    <button
+                      onClick={handleUpload}
+                      disabled={!selectedFile || isUploading}
+                      className="funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow disabled:opacity-50"
+                    >
+                      {isUploading ? "Uploading... 📤" : "Upload & Confirm Payment 🚀"}
+                    </button>
+                  </div>
+
+                  <div className="text-center">
+                    <p className="text-sm text-purple-500">
+                      Your payment will be verified within 24 hours
+                    </p>
+                  </div>
                 </div>
-              </div>
-
-              {/* Preview */}
-              {previewUrl && (
-                <div className="text-center">
-                  <h3 className="text-xl font-semibold text-purple-700 mb-4">Preview:</h3>
-                  <img
-                    src={previewUrl}
-                    alt="Payment screenshot preview"
-                    className="max-w-full max-h-64 mx-auto rounded-2xl border-4 border-purple-200 shadow-lg"
-                  />
-                  <p className="text-purple-600 mt-4">File: {selectedFile?.name}</p>
-                </div>
-              )}
-
-              {/* Upload Button */}
-              <div className="text-center pt-6">
-                <button
-                  onClick={handleUpload}
-                  disabled={!selectedFile || isUploading}
-                  className="funky-button bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-xl glow disabled:opacity-50"
-                >
-                  {isUploading ? "Uploading... 📤" : "Upload & Confirm Payment 🚀"}
-                </button>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-purple-500">
-                  Your payment will be verified within 24 hours
-                </p>
               </div>
             </div>
           </div>
